@@ -1,0 +1,10 @@
+# Root .htaccess - bloquea .env y dotfiles fuera de /api/public
+<FilesMatch "^\.env">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+# Permitir acceso a /BL/app/dist si se despliega ahí

@@ -1,0 +1,15 @@
+.env
+vendor/
+node_modules/
+app/node_modules/
+app/dist/
+api/vendor/
+*.log
+test_db.php
+*.sql
+*.dump
+coverage/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
