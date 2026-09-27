@@ -17,16 +17,21 @@ class NewCatharsisService
 {
     private string $baseUrl;
     private int $timeout;
+    private string $apiKey;
 
     public function __construct()
     {
         $config = require __DIR__ . '/../config/config.php';
         $this->baseUrl = rtrim($config['newcatharsis']['url'] ?? 'https://newcatharsis.dig-it.info', '/');
         $this->timeout = (int)($config['newcatharsis']['timeout'] ?? 15);
+        // Key pública embebida en el frontend del propio sitio (cualquier
+        // navegador la envía). Configurable por env por si la rotan.
+        $this->apiKey = (string)($config['newcatharsis']['api_key'] ?? '');
     }
 
     /**
-     * Valida formato de slug antes de pegarle a la fuente.
+     * Valida formato de slug (o ID numérico de Directus, que la API
+     * también resuelve: /api/mangas/230).
      */
     public static function isValidSlug(string $slug): bool
     {
@@ -198,6 +203,9 @@ class NewCatharsisService
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_HTTPHEADER => [
                 'Accept: application/json',
+                'System: catharsis',
+                'X-FK-Sistema: 3',
+                'x-api-key: ' . $this->apiKey,
                 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                     . 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36',
                 'Referer: ' . $this->baseUrl . '/',
@@ -214,6 +222,9 @@ class NewCatharsisService
         }
         if ($httpCode === 404) {
             throw new Exception('Obra o capítulo no encontrado en NewCatharsis (404). Revisa el slug.', 404);
+        }
+        if ($httpCode === 403) {
+            throw new Exception('NewCatharsis rechazó la API key (403). Revisa NEWCATHARSIS_API_KEY.', 403);
         }
         if ($httpCode !== 200) {
             throw new Exception("NewCatharsis respondió HTTP {$httpCode} para {$path}");

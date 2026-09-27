@@ -211,7 +211,7 @@ export function Search() {
         />
       )}
 
-      <AnimatePresence mode="popLayout">
+      <AnimatePresence mode="wait">
         {loading && !hasSearched ? (
           <SearchResultsSkeleton count={8} />
         ) : (

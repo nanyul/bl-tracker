@@ -52,6 +52,9 @@ return [
     'newcatharsis' => [
         'url' => bl_env('NEWCATHARSIS_URL', 'https://newcatharsis.dig-it.info'),
         'timeout' => (int) bl_env('NEWCATHARSIS_TIMEOUT', 15),
+        // Key pública embebida en el frontend del sitio (la envía cualquier
+        // navegador). Solo se configura por env para poder rotarla sin deploy.
+        'api_key' => bl_env('NEWCATHARSIS_API_KEY', 'SrfnigkBo3YLbySfIE0DU9WtmlF7Ov4mzakJlBV9ZCw'),
     ],
     'cors' => [
         'allowed_origins' => array_values(array_unique(array_merge(

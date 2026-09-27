@@ -74,7 +74,7 @@ export function NewcatharsisAdd() {
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
           En el sitio, abre la obra y copia el slug de la URL (la parte final, ej:{' '}
           <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">lagrimas-entre-flores-marchitas</code>).
-          También puedes pegar la URL completa.
+          También puedes pegar la URL completa o el ID numérico de la obra (ej: 230).
         </p>
         <div className="flex gap-2">
           <input
