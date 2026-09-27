@@ -1,9 +1,10 @@
 # API .htaccess
 RewriteEngine On
 
-# Handle CORS preflight
-RewriteCond %{REQUEST_METHOD} OPTIONS
-RewriteRule ^(.*)$ $1 [R=200,L]
+# NOTA: el preflight OPTIONS lo responde api/routes/api.php con las
+# cabeceras CORS (orígenes de CORS_ALLOWED_ORIGINS). No interceptarlo aquí:
+# un Rewrite con R=200 devolvería 200 SIN cabeceras CORS y el navegador
+# bloquearía la petición ("Solicitud CORS sin éxito").
 
 # Redirect all requests to index.php
 RewriteCond %{REQUEST_FILENAME} !-f
