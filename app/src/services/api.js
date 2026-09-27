@@ -21,7 +21,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // 401 en /auth/login o /auth/register = credenciales inválidas, NO sesión
+    // expirada: se deja que el formulario lo maneje (toast + errores inline).
+    // Redirigir aquí recargaba la página en seco y podía dejarla en blanco.
+    const url = error.config?.url || ''
+    const isAuthCall = url.includes('/auth/login') || url.includes('/auth/register')
+    if (error.response?.status === 401 && !isAuthCall) {
       localStorage.removeItem('bl_token')
       localStorage.removeItem('bl_user')
       window.location.href = '/login'
