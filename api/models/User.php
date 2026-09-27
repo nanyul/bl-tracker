@@ -96,12 +96,14 @@ class User
     public function upsertSettings(int $userId, array $data): bool
     {
         $allowed = ['theme','default_view','notifications_new_chapters','notifications_weekly','notifications_recommendations','language'];
+        $bools = ['notifications_new_chapters','notifications_weekly','notifications_recommendations'];
         $fields = [];
         $values = [];
         foreach ($allowed as $f) {
             if (array_key_exists($f, $data)) {
                 $fields[] = "$f = ?";
-                $values[] = $data[$f];
+                // BOOLEAN en TiDB estricto: castear (false llega como '' y da 1366)
+                $values[] = in_array($f, $bools, true) ? (int)$data[$f] : $data[$f];
             }
         }
         if (empty($fields)) return true;

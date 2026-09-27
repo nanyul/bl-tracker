@@ -207,8 +207,9 @@ class AniListService
             'season' => $media['season'],
             'season_year' => $media['seasonYear'],
             'country_of_origin' => $media['countryOfOrigin'],
-            'is_licensed' => $media['isLicensed'] ?? false,
-            'is_adult' => $media['isAdult'] ?? false,
+            // TiDB/MySQL estricto: los bool PHP llegan como '' y fallan (1366). Castear a int.
+            'is_licensed' => (int)($media['isLicensed'] ?? false),
+            'is_adult' => (int)($media['isAdult'] ?? false),
             'average_score' => $media['averageScore'],
             'popularity' => $media['popularity'],
             'favourites' => $media['favourites'],

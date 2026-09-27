@@ -30,7 +30,7 @@ class Library
             $manhwaId,
             $data['status'] ?? 'PENDIENTE',
             $data['current_chapter'] ?? 0,
-            $data['favorite'] ?? false,
+            (int)($data['favorite'] ?? false),
             $data['score'] ?? null,
             $data['notes'] ?? null,
             $data['started_at'] ?? null,
@@ -156,7 +156,8 @@ class Library
         foreach ($allowed as $field) {
             if (isset($data[$field])) {
                 $fields[] = "$field = ?";
-                $values[] = $data[$field];
+                // BOOLEAN en TiDB estricto: castear (false llega como '' y da 1366)
+                $values[] = $field === 'favorite' ? (int)$data[$field] : $data[$field];
             }
         }
         if (empty($fields)) return false;
