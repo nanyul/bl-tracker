@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: bl-tracker-api
+    runtime: docker
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    plan: free
+    healthCheckPath: /manhwa/genres
+    envVars:
+      - key: DB_HOST
+        value: gateway01.us-east-1.prod.aws.tidbcloud.com
+      - key: DB_PORT
+        value: 4000
+      - key: DB_NAME
+        value: bl_tracker
+      - key: DB_USER
+        value: 6ULhZQgqyMiELH9.root
+      # Secretos: se cargan manual en el dashboard de Render (nunca en git)
+      - key: DB_PASS
+        sync: false
+      - key: DB_SSL
+        value: true
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRATION
+        value: 604800
+      - key: APP_DEBUG
+        value: false
+      # Actualizar con la URL real que asigne Render + dominio de Vercel
+      - key: APP_URL
+        value: https://bl-tracker-api.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://bl-tracker.vercel.app

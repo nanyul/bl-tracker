@@ -1,0 +1,6 @@
+vendor/
+*.log
+.git
+tests/
+phpunit.xml*
+test_*.php
