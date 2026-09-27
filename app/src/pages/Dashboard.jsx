@@ -34,8 +34,11 @@ export function Dashboard() {
       ])
       
       setStats(statsRes)
-      setContinueReading(libraryRes.data || [])
-      setFavorites(favRes.data || [])
+      // getMyLibrary devuelve array directo (unwrap) o {data} según forma:
+      // Library.jsx ya lo maneja así; aquí se asumía objeto y quedaba [].
+      const toList = (res) => Array.isArray(res) ? res : (res?.data || [])
+      setContinueReading(toList(libraryRes))
+      setFavorites(toList(favRes))
       
       setNewChapters(chaptersRes || [])
     } catch (error) {
