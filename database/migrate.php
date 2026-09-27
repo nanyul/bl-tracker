@@ -2,7 +2,7 @@
 /**
  * Migración de base de datos para BL Tracker
  */
-require_once __DIR__ . '/../api/config/Database.php';
+require_once __DIR__ . '/../api/config/database.php';
 require_once __DIR__ . '/../api/config/db_config.php';
 
 // Cargar .env

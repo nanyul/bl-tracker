@@ -18,7 +18,7 @@
             "App\\": "src/"
         },
         "files": [
-            "config/Database.php",
+            "config/database.php",
             "middleware/AuthMiddleware.php",
             "controllers/BaseController.php"
         ]
