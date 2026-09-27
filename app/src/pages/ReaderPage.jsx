@@ -41,10 +41,18 @@ export function ReaderPage() {
     loadChapters()
   }, [manhwaId])
 
-  // Find initial chapter
-  const initialChapter = useMemo(() => chapters.find(c => 
+  // Find initial chapter (MangaDex UUID, local id, or NC number)
+  const initialChapter = useMemo(() => chapters.find(c =>
     c.mangadex_chapter_id === chapterId || c.id === parseInt(chapterId)
+    || (c.provider === 'newcatharsis' && String(c.chapter_number) === String(chapterId))
   ), [chapters, chapterId])
+
+  const chapterRefOf = (ch) => {
+    if (!ch) return null
+    if (ch.mangadex_chapter_id) return ch.mangadex_chapter_id
+    if (ch.provider === 'newcatharsis') return String(ch.chapter_number)
+    return String(ch.id)
+  }
 
   const {
     currentChapter,
@@ -77,19 +85,29 @@ export function ReaderPage() {
   useEffect(() => {
     // Wait for both currentChapter and chapters to be ready
     // Also verify that currentChapter matches the requested chapterId
-    if (!currentChapter?.mangadex_chapter_id || loadingChapters) return
+    if (!currentChapter || loadingChapters) return
+    const chapterRef = chapterRefOf(currentChapter)
+    if (!chapterRef) return
     // Verify the current chapter matches the requested chapter ID
     const requestedChapterId = chapterId
-    const currentMatches = currentChapter.mangadex_chapter_id === requestedChapterId || 
-                           currentChapter.id === parseInt(requestedChapterId)
+    const currentMatches = chapterRef === requestedChapterId ||
+                           currentChapter.mangadex_chapter_id === requestedChapterId ||
+                           currentChapter.id === parseInt(requestedChapterId) ||
+                           String(currentChapter.chapter_number) === String(requestedChapterId)
     if (!currentMatches) return
-    
+
     const loadPages = async () => {
       setLoading(true)
       setError(null)
-      setPages({ full: [], saver: [], hash: null, baseUrl: null })
+      setPages({ full: [], saver: [], hash: null, baseUrl: null, direct: [] })
       try {
-        const res = await chapterService.getPages(manhwaId, currentChapter.mangadex_chapter_id)
+        const res = await chapterService.getPages(manhwaId, chapterRef)
+        // NewCatharsis: imágenes directas (CORS abierto, sin proxy)
+        const ncImages = res?.images || res?.data?.images
+        if (res?.provider === 'newcatharsis' || Array.isArray(ncImages)) {
+          setPages({ full: [], saver: [], hash: null, baseUrl: null, direct: ncImages || [] })
+          return
+        }
         const pageList = res?.data || res?.pages || []
         const hash = res?.hash
         const baseUrl = res?.base_url
@@ -125,7 +143,7 @@ export function ReaderPage() {
         // Near bottom, mark as read
         chapterService.markAsRead(currentChapter.id).catch(console.error)
       }
-      savePosition(currentChapter.mangadex_chapter_id, scrollTop)
+      savePosition(chapterRefOf(currentChapter), scrollTop)
     }
 
     container.addEventListener('scroll', handleScroll, { passive: true })
@@ -137,7 +155,7 @@ export function ReaderPage() {
     if (mode !== 'vertical' || !currentChapter) return
     const container = containerRef.current
     if (container) {
-      const saved = getSavedPosition(currentChapter.mangadex_chapter_id)
+      const saved = getSavedPosition(chapterRefOf(currentChapter))
       if (saved > 0) {
         container.scrollTop = saved
       }
@@ -195,7 +213,12 @@ export function ReaderPage() {
 
   const pageUrls = pages?.full || []
   const saverUrls = pages?.saver || []
+  // NewCatharsis: URLs directas /assets (sin proxy MangaDex)
+  const directUrls = pages?.direct || []
   const useDataSaver = false // Could be a setting
+  const renderUrls = directUrls.length > 0
+    ? directUrls.map(url => ({ src: url, proxy: null }))
+    : pageUrls.map((url, i) => ({ src: chapterService.getImageProxyUrl(url), proxy: null, saver: saverUrls[i] ? chapterService.getImageProxyUrl(saverUrls[i]) : null }))
 
   return (
     <div className="min-h-screen bg-black">
@@ -281,14 +304,19 @@ export function ReaderPage() {
               <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2">
                 {chapters.map((ch, idx) => (
                   <Button
-                    key={ch.mangadex_chapter_id}
+                    key={ch.mangadex_chapter_id || (ch.provider === 'newcatharsis' ? `nc:${ch.chapter_number}` : ch.id)}
                     variant={idx === currentIndex ? 'primary' : 'ghost'}
                     className="w-full justify-start"
                     onClick={() => { goToChapter(idx); setShowChapterList(false); }}
                   >
                     <div className="flex items-center justify-between w-full">
                       <span>Cap. {ch.chapter_number}</span>
-                      {ch.title && <span className="text-xs text-gray-400">{ch.title}</span>}
+                      <span className="flex items-center gap-2">
+                        {ch.provider === 'newcatharsis' && ch.sincronizado === false && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">no descargado</span>
+                        )}
+                        {ch.title && <span className="text-xs text-gray-400">{ch.title}</span>}
+                      </span>
                     </div>
                   </Button>
                 ))}
@@ -310,21 +338,21 @@ export function ReaderPage() {
         {mode === 'vertical' ? (
           // Vertical scrolling (Webtoon style)
           <div className="w-full max-w-4xl mx-auto px-4 py-8">
-            {pageUrls.map((url, idx) => (
+            {renderUrls.map((item, idx) => (
               <div key={idx} className="mb-4 relative">
                 <img
-                  src={chapterService.getImageProxyUrl(url)}
+                  src={item.src}
                   alt={`Página ${idx + 1}`}
                   className="w-full h-auto rounded-xl shadow-2xl"
                   loading="lazy"
                   onError={(e) => {
-                    // Fallback to data saver
-                    if (saverUrls[idx] && e.target.src !== chapterService.getImageProxyUrl(saverUrls[idx])) {
-                      e.target.src = chapterService.getImageProxyUrl(saverUrls[idx])
+                    // Fallback to data saver (solo MangaDex)
+                    if (item.saver && e.target.src !== item.saver) {
+                      e.target.src = item.saver
                     }
                   }}
                 />
-                {idx === pageUrls.length - 1 && (
+                {idx === renderUrls.length - 1 && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -352,20 +380,20 @@ export function ReaderPage() {
         ) : (
           // Horizontal paging (Manga style)
           <div className="flex h-full items-center justify-center gap-8 px-8 overflow-x-auto snap-x snap-mandatory">
-            {pageUrls.map((url, idx) => (
+            {renderUrls.map((item, idx) => (
               <div
                 key={idx}
                 className="flex-shrink-0 w-full max-w-4xl snap-center snap-always"
                 style={{ scrollSnapAlign: 'center' }}
               >
                 <img
-                  src={chapterService.getImageProxyUrl(url)}
+                  src={item.src}
                   alt={`Página ${idx + 1}`}
                   className="w-full h-auto rounded-xl shadow-2xl"
                   loading="lazy"
                   onError={(e) => {
-                    if (saverUrls[idx] && e.target.src !== chapterService.getImageProxyUrl(saverUrls[idx])) {
-                      e.target.src = chapterService.getImageProxyUrl(saverUrls[idx])
+                    if (item.saver && e.target.src !== item.saver) {
+                      e.target.src = item.saver
                     }
                   }}
                 />

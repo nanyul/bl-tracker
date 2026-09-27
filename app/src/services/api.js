@@ -139,6 +139,16 @@ export const manhwaService = {
     const response = await api.post(`/manhwa/${id}/update-chapters`)
     return unwrap(response)
   },
+
+  async previewNewcatharsis(slug) {
+    const response = await api.get('/manhwa/preview-newcatharsis', { params: { slug } })
+    return unwrap(response)
+  },
+
+  async getOrCreateFromNewcatharsis(slug) {
+    const response = await api.post('/manhwa/from-newcatharsis', { slug })
+    return unwrap(response)
+  },
 }
 
 export const libraryService = {

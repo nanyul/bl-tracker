@@ -16,7 +16,8 @@ class Manhwa
         $fields = [
             'anilist_id', 'mangadex_id', 'title', 'title_english', 'title_romaji', 
             'title_native', 'description', 'cover_image', 'banner_image',
-            'status', 'format', 'source', 'chapters', 'volumes',
+            'status', 'format', 'source', 'source_provider', 'source_slug',
+            'chapters', 'volumes',
             'start_date', 'end_date', 'season', 'season_year',
             'country_of_origin', 'is_licensed', 'is_adult',
             'average_score', 'popularity', 'favourites',
@@ -56,6 +57,21 @@ class Manhwa
         $stmt->execute([$mangadexId]);
         $row = $stmt->fetch();
         return $row ? $this->formatRow($row) : null;
+    }
+
+    public function findBySource(string $provider, string $slug): ?array
+    {
+        // Tolerante a instalaciones sin las nuevas columnas (pre-migración).
+        try {
+            $stmt = $this->db->prepare("SELECT * FROM manhwas WHERE source_provider = ? AND source_slug = ?");
+            $stmt->execute([$provider, $slug]);
+            $row = $stmt->fetch();
+            return $row ? $this->formatRow($row) : null;
+        } catch (PDOException $e) {
+            if (strpos($e->getMessage(), 'Unknown column') === false) throw $e;
+            if ($provider === 'newcatharsis') return null;
+            return $provider === 'mangadex' ? $this->findByMangaDexId($slug) : null;
+        }
     }
 
     public function search(string $query, int $page = 1, int $perPage = 20, array $filters = []): array
@@ -127,6 +143,7 @@ class Manhwa
         $allowed = [
             'mangadex_id', 'title', 'title_english', 'title_romaji', 'title_native',
             'description', 'cover_image', 'banner_image', 'status', 'format', 'source',
+            'source_provider', 'source_slug',
             'chapters', 'volumes', 'start_date', 'end_date', 'season', 'season_year',
             'country_of_origin', 'is_licensed', 'is_adult',
             'average_score', 'popularity', 'favourites', 'genres', 'tags'

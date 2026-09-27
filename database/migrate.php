@@ -63,6 +63,8 @@ try {
             status ENUM('RELEASING', 'FINISHED', 'HIATUS', 'CANCELLED', 'NOT_YET_RELEASED') DEFAULT 'RELEASING',
             format VARCHAR(50),
             source VARCHAR(50),
+            source_provider VARCHAR(20) DEFAULT 'mangadex',
+            source_slug VARCHAR(255) NULL,
             chapters INT,
             volumes INT,
             start_date DATE,
@@ -79,6 +81,7 @@ try {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_anilist (anilist_id),
             INDEX idx_mangadex (mangadex_id),
+            INDEX idx_source (source_provider, source_slug),
             INDEX idx_title (title),
             INDEX idx_status (status),
             INDEX idx_popularity (popularity),
@@ -112,25 +115,59 @@ try {
     ");
     echo "✓ library\n";
     
-    // Tabla chapters
+    // Tabla chapters (multi-fuente: mangadex + newcatharsis lazy)
     $db->exec("
         CREATE TABLE IF NOT EXISTS chapters (
             id INT AUTO_INCREMENT PRIMARY KEY,
             manhwa_id INT NOT NULL,
-            mangadex_chapter_id VARCHAR(36) NOT NULL UNIQUE,
+            mangadex_chapter_id VARCHAR(36) NULL UNIQUE,
+            provider VARCHAR(20) DEFAULT 'mangadex',
+            external_ref VARCHAR(255) NULL,
             chapter_number DECIMAL(6,2) NOT NULL,
             title VARCHAR(255),
             volume DECIMAL(4,1),
             language VARCHAR(5) DEFAULT 'es',
             pages INT,
             publish_date DATE,
+            image_urls JSON NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (manhwa_id) REFERENCES manhwas(id) ON DELETE CASCADE,
+            UNIQUE KEY uq_manhwa_provider_number (manhwa_id, provider, chapter_number),
             INDEX idx_manhwa_number (manhwa_id, chapter_number),
             INDEX idx_mangadex (mangadex_chapter_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
     echo "✓ chapters\n";
+
+    // ALTERs idempotentes para instalaciones existentes (pre-migración).
+    $alters = [
+        "ALTER TABLE manhwas ADD COLUMN source_provider VARCHAR(20) DEFAULT 'mangadex'",
+        "ALTER TABLE manhwas ADD COLUMN source_slug VARCHAR(255) NULL",
+        "ALTER TABLE manhwas ADD INDEX idx_source (source_provider, source_slug)",
+        "ALTER TABLE chapters MODIFY COLUMN mangadex_chapter_id VARCHAR(36) NULL",
+        "ALTER TABLE chapters ADD COLUMN provider VARCHAR(20) DEFAULT 'mangadex'",
+        "ALTER TABLE chapters ADD COLUMN external_ref VARCHAR(255) NULL",
+        "ALTER TABLE chapters ADD COLUMN image_urls JSON NULL",
+        "ALTER TABLE chapters ADD UNIQUE KEY uq_manhwa_provider_number (manhwa_id, provider, chapter_number)",
+    ];
+    foreach ($alters as $sql) {
+        try {
+            $db->exec($sql);
+        } catch (PDOException $e) {
+            $msg = $e->getMessage();
+            // 1060 duplicada, 1061 clave duplicada, 1068 múltiples PK: ya aplicada.
+            if (strpos($msg, '1060') === false && strpos($msg, '1061') === false
+                && strpos($msg, '1068') === false && stripos($msg, 'duplicate') === false
+                && stripos($msg, 'exists') === false) {
+                throw $e;
+            }
+        }
+    }
+    // Backfill: lo existente es MangaDex.
+    $db->exec("UPDATE manhwas SET source_provider = 'mangadex', source_slug = mangadex_id WHERE mangadex_id IS NOT NULL AND (source_provider IS NULL OR source_provider = '')");
+    $db->exec("UPDATE manhwas SET source_provider = 'anilist' WHERE mangadex_id IS NULL AND (source_provider IS NULL OR source_provider = '' OR source_provider = 'mangadex')");
+    $db->exec("UPDATE chapters SET provider = 'mangadex', external_ref = mangadex_chapter_id WHERE provider IS NULL OR provider = ''");
+    echo "✓ alters multi-fuente + backfill\n";
     
     // Tabla user_settings
     $db->exec("

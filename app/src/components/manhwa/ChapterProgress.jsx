@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Minus, Plus, BookOpen, CheckCircle, AlertCircle, Check } from 'lucide-react'
+import { Minus, Plus, BookOpen, CheckCircle, AlertCircle, Check, CloudDownload } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Badge, StatusBadge } from '../ui/Badge'
 import { cn, getStatusLabel } from '../../utils/helpers'
@@ -149,7 +149,7 @@ export function ChapterList({ chapters = [], currentChapter, onChapterClick, onT
   const [expanded, setExpanded] = useState(false)
   const displayChapters = expanded ? chapters : chapters.slice(-10)
   const hasMore = chapters.length > 10
-  const getKey = (ch) => ch.mangadex_chapter_id || String(ch.id)
+  const getKey = (ch) => ch.mangadex_chapter_id || (ch.provider === 'newcatharsis' ? `nc:${ch.chapter_number}` : null) || String(ch.id)
 
   return (
     <div className="space-y-2 mt-4">
@@ -162,7 +162,7 @@ export function ChapterList({ chapters = [], currentChapter, onChapterClick, onT
           const formattedNum = Number(chapter.chapter_number).toFixed(2)
           return (
           <motion.div
-            key={chapter.id || chapter.mangadex_chapter_id || index}
+            key={chapter.id || chapter.mangadex_chapter_id || (chapter.provider === 'newcatharsis' ? `nc:${chapter.chapter_number}` : null) || index}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
@@ -191,8 +191,19 @@ export function ChapterList({ chapters = [], currentChapter, onChapterClick, onT
                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
                   Cap. {formattedNum} <span className="font-normal text-gray-500 dark:text-gray-400">: {chapter.title || 'Sin título'}</span>
                 </p>
-                <p className="text-[11px] text-gray-400">
+                <p className="text-[11px] text-gray-400 flex items-center gap-1.5">
                   {chapter.publish_date ? new Date(chapter.publish_date).toLocaleDateString('es-ES') : '—'}
+                  {(chapter.provider === 'newcatharsis' || chapter.sincronizado === false) && chapter.sincronizado !== undefined && (
+                    chapter.sincronizado ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#8FBC93]/15 text-[#6BAE75] font-medium">
+                        <CheckCircle className="w-3 h-3" /> listo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium" title="Se descarga al abrirlo por primera vez">
+                        <CloudDownload className="w-3 h-3" /> no descargado
+                      </span>
+                    )
+                  )}
                 </p>
               </div>
             </button>

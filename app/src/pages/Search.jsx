@@ -8,6 +8,7 @@ import { ManhwaCard } from '../components/manhwa/ManhwaCard'
 import { SearchBar } from '../components/search/SearchBar'
 import { SearchFilters } from '../components/search/SearchFilters'
 import { SearchResults, SearchPageHeader } from '../components/search/SearchResults'
+import { NewcatharsisAdd } from '../components/search/NewcatharsisAdd'
 import { manhwaService } from '../services/api'
 import { cn, debounce } from '../utils/helpers'
 import { SearchResultsSkeleton } from '../components/ui/Skeleton'
@@ -62,6 +63,7 @@ export function Search() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [source, setSource] = useState('anilist') // 'anilist' | 'newcatharsis'
 
   const hasActiveFilters = (activeFilters) => (
     activeFilters.genres?.length || activeFilters.tags?.length || activeFilters.status
@@ -148,20 +150,49 @@ export function Search() {
             </h1>
             <p className="text-gray-400 dark:text-gray-500 text-sm mt-0.5">Encuentra tu próximo manga o manhwa favorito</p>
           </div>
+          {source === 'anilist' && (
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className="rounded-xl bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
             <Filter className="w-4 h-4 mr-2" />
             Filtros
           </Button>
+          )}
         </div>
 
+        <div className="flex gap-2 mb-4">
+          <Button
+            variant={source === 'anilist' ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setSource('anilist')}
+            className="rounded-full"
+          >
+            Buscar (AniList)
+          </Button>
+          <Button
+            variant={source === 'newcatharsis' ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setSource('newcatharsis')}
+            className="rounded-full"
+          >
+            Por slug (NewCatharsis)
+          </Button>
+        </div>
+
+        {source === 'anilist' ? (
         <SearchBar 
           onSearch={handleSearchSubmit}
           initialQuery={query}
           placeholder="Título, autor, género... (ej: Jinx, Killing Stalking, Omegaverse)"
           showFilters={false}
         />
+        ) : (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          NewCatharsis no tiene buscador en su API: se añade por slug con vista previa antes de guardar.
+        </p>
+        )}
       </motion.div>
 
+      {source === 'anilist' && (
+      <>
       <SearchFilters
         filters={filters}
         onFiltersChange={handleFilterChange}
@@ -196,8 +227,12 @@ export function Search() {
           />
         )}
       </AnimatePresence>
+      </>
+      )}
 
-      {!hasSearched && !loading && (
+      {source === 'newcatharsis' && <NewcatharsisAdd />}
+
+      {!hasSearched && !loading && source === 'anilist' && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

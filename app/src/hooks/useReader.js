@@ -1,15 +1,24 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
+export function chapterKey(ch) {
+  if (!ch) return ''
+  if (ch.mangadex_chapter_id) return ch.mangadex_chapter_id
+  if (ch.provider === 'newcatharsis') return `nc:${ch.chapter_number}`
+  return String(ch.id)
+}
+
 export function useReader(chapters, initialChapter) {
   const [currentIndex, setCurrentIndex] = useState(() => {
     if (!initialChapter) return 0
-    return chapters.findIndex(c => c.mangadex_chapter_id === initialChapter.mangadex_chapter_id)
+    const key = chapterKey(initialChapter)
+    return Math.max(0, chapters.findIndex(c => chapterKey(c) === key))
   })
-  
+
   // Update currentIndex when initialChapter or chapters change
   useEffect(() => {
     if (initialChapter) {
-      const index = chapters.findIndex(c => c.mangadex_chapter_id === initialChapter.mangadex_chapter_id)
+      const key = chapterKey(initialChapter)
+      const index = chapters.findIndex(c => chapterKey(c) === key)
       if (index !== -1) {
         setCurrentIndex(index)
       }
@@ -75,7 +84,7 @@ export function useReader(chapters, initialChapter) {
   }, [])
 
   const setPagesLoaded = useCallback((chapterId, pageList) => {
-    if (chapters[currentIndex]?.mangadex_chapter_id === chapterId) {
+    if (chapterKey(chapters[currentIndex]) === chapterId) {
       setPages(pageList)
       setLoading(false)
     }

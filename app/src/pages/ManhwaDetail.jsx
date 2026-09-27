@@ -182,6 +182,8 @@ export function ManhwaDetail() {
         setNewChaptersCount(newChaps.length)
       }
     } catch (error) {
+      // NewCatharsis usa sync lazy: el backend responde 400 con el mensaje.
+      toast.error(error.response?.data?.message || error.data?.message || 'No se pudieron actualizar los capítulos')
       console.error('Error updating chapters:', error)
     } finally {
       setUpdating(false)
@@ -189,10 +191,21 @@ export function ManhwaDetail() {
   }
 
   const handleOpenChapter = (chapter) => {
-    if (chapter.mangadex_chapter_id) setReaderChapter(chapter)
+    if (chapter.mangadex_chapter_id) {
+      setReaderChapter(chapter)
+      return
+    }
+    // NewCatharsis (listado virtual): el ref es el número; el sync ocurre al abrir.
+    if (chapter.provider === 'newcatharsis' && chapter.chapter_number != null) {
+      setReaderChapter(chapter)
+    }
   }
 
-  const getChapterKey = (chapter) => chapter.mangadex_chapter_id || String(chapter.id)
+  const getChapterKey = (chapter) => {
+    if (chapter.mangadex_chapter_id) return chapter.mangadex_chapter_id
+    if (chapter.provider === 'newcatharsis') return `nc:${chapter.chapter_number}`
+    return String(chapter.id)
+  }
   const handleToggleRead = (chapter) => {
     const key = getChapterKey(chapter)
     setCheckedReads(prev => {
@@ -206,7 +219,15 @@ export function ManhwaDetail() {
     })
   }
 
-  const readerIndex = readerChapter ? chapters.findIndex(chapter => chapter.id === readerChapter.id || chapter.mangadex_chapter_id === readerChapter.mangadex_chapter_id) : -1
+  const chaptersMatch = (a, b) => {
+    if (!a || !b) return false
+    if (a.id != null && b.id != null && a.id === b.id) return true
+    if (a.mangadex_chapter_id && b.mangadex_chapter_id && a.mangadex_chapter_id === b.mangadex_chapter_id) return true
+    if (a.provider === 'newcatharsis' && b.provider === 'newcatharsis'
+      && Number(a.chapter_number) === Number(b.chapter_number)) return true
+    return false
+  }
+  const readerIndex = readerChapter ? chapters.findIndex(chapter => chaptersMatch(chapter, readerChapter)) : -1
   const previousChapter = readerIndex > 0 ? chapters[readerIndex - 1] : null
   const nextChapter = readerIndex >= 0 && readerIndex < chapters.length - 1 ? chapters[readerIndex + 1] : null
 

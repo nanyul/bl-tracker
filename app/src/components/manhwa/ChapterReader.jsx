@@ -14,12 +14,23 @@ export function ChapterReader({ chapter, onClose, onPrevious, onNext }) {
       setLoading(true)
       setError('')
       try {
-        // chapter.manhwa_id puede venir como manhwa_id o id según origen
+        // chapter.manhwa_id puede venir como manhwa_id o id según origen.
+        // Para NewCatharsis el ref es el número de capítulo (listado virtual).
         const manhwaId = chapter.manhwa_id || chapter.manhwaId
+        const chapterRef = chapter.mangadex_chapter_id || chapter.chapter_number
         if (!manhwaId) {
           throw new Error('Manhwa ID no disponible para este capítulo')
         }
-        const response = await chapterService.getPages(manhwaId, chapter.mangadex_chapter_id)
+        if (!chapterRef) {
+          throw new Error('Referencia de capítulo no disponible')
+        }
+        const response = await chapterService.getPages(manhwaId, chapterRef)
+        // NewCatharsis: { provider: 'newcatharsis', images: [urls directas] }
+        const ncImages = response?.images
+        if (response?.provider === 'newcatharsis' || Array.isArray(ncImages)) {
+          if (active) setPages((ncImages || []).map(url => ({ primary: url, fallback: null })))
+          return
+        }
         const baseUrl = (response?.base_url || response?.baseUrl || '').replace(/\/+$/, '')
         const hash = response?.hash
         const filenames = response?.data || response?.pages || []
@@ -47,7 +58,9 @@ export function ChapterReader({ chapter, onClose, onPrevious, onNext }) {
     <div className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white">
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-black/80 px-4 py-3">
         <div>
-          <p className="text-xs uppercase tracking-wide text-white/60">Lector MangaDex</p>
+          <p className="text-xs uppercase tracking-wide text-white/60">
+            Lector {chapter.provider === 'newcatharsis' ? 'NewCatharsis' : 'MangaDex'}
+          </p>
           <h2 className="font-display text-lg font-semibold">Capítulo {chapter.chapter_number}</h2>
         </div>
         <button onClick={onClose} className="rounded-xl p-2 text-white/70 hover:bg-white/10 hover:text-white" aria-label="Cerrar lector">

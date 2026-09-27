@@ -5,6 +5,7 @@
 require_once __DIR__ . '/../models/Manhwa.php';
 require_once __DIR__ . '/../services/AniListService.php';
 require_once __DIR__ . '/../services/MangaDexService.php';
+require_once __DIR__ . '/../services/NewCatharsisService.php';
 require_once __DIR__ . '/BaseController.php';
 
 class ManhwaController extends BaseController
@@ -12,6 +13,7 @@ class ManhwaController extends BaseController
     private Manhwa $manhwaModel;
     private AniListService $anilist;
     private MangaDexService $mangadex;
+    private NewCatharsisService $newcatharsis;
 
     public function __construct()
     {
@@ -19,6 +21,7 @@ class ManhwaController extends BaseController
         $this->manhwaModel = new Manhwa();
         $this->anilist = new AniListService();
         $this->mangadex = new MangaDexService();
+        $this->newcatharsis = new NewCatharsisService();
     }
 
     public function search(): void
@@ -205,6 +208,88 @@ class ManhwaController extends BaseController
         }
     }
 
+    /**
+     * Preview antes de guardar: valida el slug contra la fuente y devuelve
+     * título + portada para confirmar que es la obra correcta.
+     * GET /manhwa/preview-newcatharsis?slug=...
+     */
+    public function previewFromNewCatharsis(): void
+    {
+        $slug = trim($_GET['slug'] ?? '');
+        if ($slug === '') {
+            $this->error('Slug requerido', 400);
+        }
+        if (!NewCatharsisService::isValidSlug($slug)) {
+            $this->error('Slug inválido. Usa solo minúsculas, números y guiones.', 400);
+        }
+
+        $existing = $this->manhwaModel->findBySource('newcatharsis', $slug);
+        if ($existing) {
+            $this->success(['preview' => $this->previewPayload($slug, []), 'existing' => $existing], 'Esta obra ya está en tu base de datos');
+            return;
+        }
+
+        try {
+            $manga = $this->newcatharsis->getManga($slug);
+            $this->success(['preview' => $this->previewPayload($slug, $manga), 'existing' => null]);
+        } catch (Exception $e) {
+            $code = (int)($e->getCode() ?: 0);
+            $this->error($e->getMessage(), $code === 404 ? 404 : 502);
+        }
+    }
+
+    private function previewPayload(string $slug, array $manga): array
+    {
+        return [
+            'slug' => $slug,
+            'titulo' => $manga['titulo'] ?? null,
+            'descripcion' => $manga['descripcion'] ?? null,
+            'portada_url' => $manga['portada_url'] ?? null,
+            'n_capitulos' => $manga['n_capitulos'] ?? null,
+            'estado' => $manga['estado'] ?? null,
+            'scan' => $manga['scan'] ?? null,
+            'nsfw' => $manga['nsfw'] ?? false,
+        ];
+    }
+
+    /**
+     * Alta LAZY: solo trae metadata (título, portada, n_capitulos).
+     * NO sincroniza capítulos — cada uno se trae en su primera apertura.
+     * POST /manhwa/from-newcatharsis {slug}
+     */
+    public function getOrCreateFromNewCatharsis(): void
+    {
+        $input = $this->getInput();
+        $slug = trim($input['slug'] ?? '');
+        if ($slug === '') {
+            $this->error('Slug requerido', 400);
+        }
+        if (!NewCatharsisService::isValidSlug($slug)) {
+            $this->error('Slug inválido. Usa solo minúsculas, números y guiones.', 400);
+        }
+
+        $existing = $this->manhwaModel->findBySource('newcatharsis', $slug);
+        if ($existing) {
+            $this->success($existing);
+            return;
+        }
+
+        try {
+            $manga = $this->newcatharsis->getManga($slug);
+            if (empty($manga['titulo'])) {
+                $this->error('La fuente no devolvió título para ese slug', 502);
+            }
+            $data = $this->newcatharsis->formatForStorage($manga, $slug);
+            $newId = $this->manhwaModel->create($data);
+            $manhwa = $this->manhwaModel->findById($newId);
+            // Intencionalmente SIN sync de capítulos (lazy por apertura).
+            $this->success($manhwa, 'Obra dada de alta. Los capítulos se sincronizan al abrirlos.');
+        } catch (Exception $e) {
+            $code = (int)($e->getCode() ?: 0);
+            $this->error('Error al crear obra desde NewCatharsis: ' . $e->getMessage(), $code === 404 ? 404 : 500);
+        }
+    }
+
     private function linkMangaDex(array &$manhwa): void
     {
         if ($manhwa['mangadex_id']) return;
@@ -257,7 +342,13 @@ class ManhwaController extends BaseController
         $manhwa = $this->manhwaModel->findById($id);
         
         if (!$manhwa) {
-            $this->error('Obra no encontrada o sin MangaDex ID', 404);
+            $this->error('Obra no encontrada', 404);
+        }
+
+        // NewCatharsis: sincronización bajo demanda (lazy por apertura).
+        // No hay bulk: disparar N peticiones en ráfaga es patrón bot.
+        if (($manhwa['source_provider'] ?? '') === 'newcatharsis') {
+            $this->error('Sincronización bajo demanda: abre el capítulo para sincronizarlo', 400);
         }
 
         if (!$manhwa['mangadex_id']) {

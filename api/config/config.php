@@ -49,6 +49,10 @@ return [
         'url' => 'https://api.mangadex.org',
         'timeout' => 10,
     ],
+    'newcatharsis' => [
+        'url' => bl_env('NEWCATHARSIS_URL', 'https://newcatharsis.dig-it.info'),
+        'timeout' => (int) bl_env('NEWCATHARSIS_TIMEOUT', 15),
+    ],
     'cors' => [
         'allowed_origins' => array_values(array_unique(array_merge(
             ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:81', 'http://127.0.0.1:5173'],
