@@ -20,11 +20,16 @@ export function ChapterReader({ chapter, onClose, onPrevious, onNext }) {
           throw new Error('Manhwa ID no disponible para este capítulo')
         }
         const response = await chapterService.getPages(manhwaId, chapter.mangadex_chapter_id)
+        const baseUrl = (response?.base_url || response?.baseUrl || '').replace(/\/+$/, '')
         const hash = response?.hash
         const filenames = response?.data || response?.pages || []
-        // Usar proxy para evitar CORS/hotlink de MangaDex
+        // Prioridad: at-home server oficial de MangaDex (URL directa, sin hotlink-block).
+        // Fallback: proxy del backend (evita CORS/hotlink si el at-home falla).
         const imagePages = hash
-          ? filenames.map(filename => chapterService.getImageProxyUrl(`data/${hash}/${filename}`))
+          ? filenames.map(filename => ({
+              primary: baseUrl ? `${baseUrl}/data/${hash}/${filename}` : null,
+              fallback: chapterService.getImageProxyUrl(`data/${hash}/${filename}`),
+            })).map(page => (page.primary ? page : { ...page, primary: page.fallback, fallback: null }))
           : []
         if (active) setPages(imagePages)
       } catch (loadError) {
@@ -56,7 +61,20 @@ export function ChapterReader({ chapter, onClose, onPrevious, onNext }) {
         {!loading && !error && pages.length === 0 && <div className="py-20 text-center text-white/70">Este capítulo no tiene páginas disponibles.</div>}
         {!loading && !error && pages.length > 0 && (
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-3">
-            {pages.map((page, index) => <img key={page} src={page} alt={`Página ${index + 1}`} className="block w-full object-contain" loading={index < 2 ? 'eager' : 'lazy'} />)}
+            {pages.map((page, index) => (
+              <img
+                key={page.primary}
+                src={page.primary}
+                alt={`Página ${index + 1}`}
+                className="block w-full object-contain"
+                loading={index < 2 ? 'eager' : 'lazy'}
+                onError={(e) => {
+                  if (page.fallback && e.currentTarget.src !== page.fallback) {
+                    e.currentTarget.src = page.fallback
+                  }
+                }}
+              />
+            ))}
           </div>
         )}
       </main>

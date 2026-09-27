@@ -215,10 +215,12 @@ export const chapterService = {
   },
 
   getImageProxyUrl(imagePath) {
-    // Mantener extensión para que MangaDex CDN resuelva correctamente
+    // ABSOLUTA al backend: en Vercel '/api/...' relativo apuntaría al
+    // frontend (404). API_BASE_URL ya es absoluta en prod.
     // imagePath ej: data/<hash>/page.jpg o data-saver/<hash>/page.jpg
     const cleanPath = imagePath.replace(/^\/+/, '')
-    return `/api/proxy/mangadex/image/${cleanPath}`
+    const base = API_BASE_URL.replace(/\/+$/, '')
+    return `${base}/proxy/mangadex/image/${cleanPath}`
   },
 }
 
