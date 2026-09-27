@@ -117,14 +117,15 @@ class Library
         }
 
         $whereClause = implode(' AND ', $where);
-        
+
+        // TiDB no acepta placeholders en LIMIT/OFFSET (error 1210): interpolar ints.
+        $perPage = (int)$perPage;
+        $offset = (int)$offset;
         $sql = "SELECT l.*, m.id as id, m.title, m.title_english, m.title_romaji, m.title_native, m.description, m.cover_image, m.banner_image, m.genres, m.tags, m.status as manhwa_status, m.format, m.chapters, m.volumes, m.start_date, m.end_date, m.average_score, m.popularity, m.favourites, m.is_adult, m.anilist_id, m.mangadex_id FROM library l
                 JOIN manhwas m ON l.manhwa_id = m.id
                 WHERE $whereClause
                 ORDER BY $orderBy
-                LIMIT ? OFFSET ?";
-        $params[] = $perPage;
-        $params[] = $offset;
+                LIMIT $perPage OFFSET $offset";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -132,7 +133,7 @@ class Library
 
         $countSql = "SELECT COUNT(*) FROM library l JOIN manhwas m ON l.manhwa_id = m.id WHERE $whereClause";
         $countStmt = $this->db->prepare($countSql);
-        $countStmt->execute(array_slice($params, 0, -2));
+        $countStmt->execute($params);
         $total = (int)$countStmt->fetchColumn();
 
         return ['data' => $items, 'total' => $total, 'hasMore' => $page * $perPage < $total];
@@ -214,25 +215,27 @@ class Library
 
     public function getContinueReading(int $userId, int $limit = 4): array
     {
+        $limit = (int)$limit;
         $stmt = $this->db->prepare(
             "SELECT l.*, m.id as id, m.title, m.title_english, m.title_romaji, m.cover_image, m.status as manhwa_status, m.chapters FROM library l
              JOIN manhwas m ON l.manhwa_id = m.id
              WHERE l.user_id = ? AND l.status = 'LEYENDO'
-             ORDER BY l.updated_at DESC LIMIT ?"
+             ORDER BY l.updated_at DESC LIMIT $limit"
         );
-        $stmt->execute([$userId, $limit]);
+        $stmt->execute([$userId]);
         return $stmt->fetchAll();
     }
 
     public function getFavorites(int $userId, int $limit = 4): array
     {
+        $limit = (int)$limit;
         $stmt = $this->db->prepare(
             "SELECT l.*, m.id as id, m.title, m.title_english, m.title_romaji, m.cover_image, m.status as manhwa_status FROM library l
              JOIN manhwas m ON l.manhwa_id = m.id
              WHERE l.user_id = ? AND l.favorite = 1
-             ORDER BY l.updated_at DESC LIMIT ?"
+             ORDER BY l.updated_at DESC LIMIT $limit"
         );
-        $stmt->execute([$userId, $limit]);
+        $stmt->execute([$userId]);
         return $stmt->fetchAll();
     }
 }

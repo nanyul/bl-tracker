@@ -74,10 +74,11 @@ class Manhwa
         }
 
         $whereClause = implode(' AND ', $where);
-        
-        $sql = "SELECT * FROM manhwas WHERE $whereClause ORDER BY popularity DESC LIMIT ? OFFSET ?";
-        $params[] = $perPage;
-        $params[] = $offset;
+
+        // TiDB no acepta placeholders en LIMIT/OFFSET (error 1210): interpolar ints.
+        $perPage = (int)$perPage;
+        $offset = (int)$offset;
+        $sql = "SELECT * FROM manhwas WHERE $whereClause ORDER BY popularity DESC LIMIT $perPage OFFSET $offset";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -86,7 +87,7 @@ class Manhwa
         // Count total
         $countSql = "SELECT COUNT(*) FROM manhwas WHERE $whereClause";
         $countStmt = $this->db->prepare($countSql);
-        $countStmt->execute(array_slice($params, 0, -2));
+        $countStmt->execute($params);
         $total = (int)$countStmt->fetchColumn();
 
         return ['items' => $items, 'total' => $total];
@@ -104,10 +105,10 @@ class Manhwa
         }
 
         $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        
-        $sql = "SELECT * FROM manhwas $whereClause ORDER BY popularity DESC LIMIT ? OFFSET ?";
-        $params[] = $perPage;
-        $params[] = $offset;
+
+        $perPage = (int)$perPage;
+        $offset = (int)$offset;
+        $sql = "SELECT * FROM manhwas $whereClause ORDER BY popularity DESC LIMIT $perPage OFFSET $offset";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
